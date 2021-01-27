@@ -24,6 +24,7 @@ func (c *crawler) Crawl(ctx context.Context, url *url.URL) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("faield to create request: %w", err)
 	}
+	request.Header.Add("User-Agent", "https://github.com/ngalaiko/parser-breakit")
 
 	response, err := c.client.Do(request)
 	if err != nil {
