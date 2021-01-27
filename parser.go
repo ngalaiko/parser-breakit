@@ -33,6 +33,8 @@ type Article struct {
 	Title       string
 	Preamble    string
 	Summary     *string
+
+	links []*url.URL
 }
 
 // Parse starts parsing.
@@ -58,13 +60,13 @@ func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL) ([]*Artic
 
 	p.logger.Debugf("parsing %s", url)
 
-	article, links, err := p.parsePage(ctx, url)
+	article, err := p.parsePage(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 
 	articles := []*Article{article}
-	for _, link := range links {
+	for _, link := range article.links {
 		p.logger.Debugf("%s links to %s", url, link)
 
 		linkedArticles, err := p.parse(ctx, depth-1, link)
@@ -81,18 +83,21 @@ func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL) ([]*Artic
 // returns:
 // * a parsed article, if it's an article page
 // * a list of links found on the page
-func (p *Parser) parsePage(ctx context.Context, link *url.URL) (*Article, []*url.URL, error) {
+func (p *Parser) parsePage(ctx context.Context, link *url.URL) (*Article, error) {
 	content, err := p.crawler.Crawl(ctx, link)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch '%s': %w", link, err)
+		return nil, fmt.Errorf("failed to fetch '%s': %w", link, err)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(content))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse '%s': %w", link, err)
+		return nil, fmt.Errorf("failed to parse '%s': %w", link, err)
 	}
 
-	return extractContent(link, doc), extractLinks(link, doc), nil
+	article := extractContent(link, doc)
+	article.links = extractLinks(link, doc)
+
+	return article, nil
 }
 
 func extractContent(src *url.URL, doc *goquery.Document) *Article {
