@@ -34,8 +34,7 @@ type Article struct {
 	Title       string
 	Preamble    string
 	Summary     *string
-
-	links []*url.URL
+	Links       []*url.URL
 }
 
 // Parse starts parsing.
@@ -87,12 +86,12 @@ func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan 
 
 	articles <- article
 
-	if len(article.links) == 0 {
+	if len(article.Links) == 0 {
 		return
 	}
 
 	wg := &sync.WaitGroup{}
-	for _, link := range article.links {
+	for _, link := range article.Links {
 		link := link
 		wg.Add(1)
 		go func() {
@@ -122,7 +121,7 @@ func (p *Parser) parsePage(ctx context.Context, link *url.URL) (*Article, error)
 
 	article := &Article{
 		URL:   link,
-		links: extractLinks(link, doc),
+		Links: extractLinks(link, doc),
 	}
 	extractContent(article, doc)
 

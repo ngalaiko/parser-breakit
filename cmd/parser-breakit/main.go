@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -42,7 +43,7 @@ linked from a found page wil be also parsed`)
 func output(aa []*parser.Article, writer io.Writer) error {
 	csvWriter := csv.NewWriter(writer)
 
-	if err := csvWriter.Write([]string{"Link", "Published", "Title", "Preamble", "First Paragraph"}); err != nil {
+	if err := csvWriter.Write([]string{"Link", "Published", "Title", "Preamble", "First Paragraph", "Links To"}); err != nil {
 		return err
 	}
 
@@ -53,6 +54,8 @@ func output(aa []*parser.Article, writer io.Writer) error {
 		} else {
 			columns = append(columns, "")
 		}
+
+		columns = append(columns, fmt.Sprint(a.Links))
 
 		if err := csvWriter.Write(columns); err != nil {
 			return err
