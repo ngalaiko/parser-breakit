@@ -12,6 +12,7 @@ func main() {
 	depth := flag.Int64("d", 0, `Parsing recursion depth. For example, if set to 1, all pages that are
 linked from a found page wil be also parsed`)
 	concurrency := flag.Int64("p", 1, "How many pages to parse concurrently")
+	verbose := flag.Bool("v", false, "Verbose logging")
 
 	flag.Parse()
 
@@ -21,11 +22,13 @@ linked from a found page wil be also parsed`)
 
 	ctx := context.Background()
 
-	aa, err := parser.New().Parse(ctx, *depth, *concurrency)
+	aa, err := parser.New(*verbose).Parse(ctx, *depth, *concurrency)
 	if err != nil {
 		log.Fatalf("error: %s", err)
 	}
 
 	// TODO: prettify the output
-	log.Print(aa)
+	for _, a := range aa {
+		log.Printf("%+v", a)
+	}
 }
