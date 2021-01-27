@@ -43,14 +43,27 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 
 	articlesStream := make(chan *Article)
 	errorsStream := make(chan error)
+	done := make(chan struct{})
 
-	go p.parse(ctx, depth+1, startURL, make(chan struct{}, concurrency), articlesStream, errorsStream)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		p.parse(ctx, depth+1, startURL, make(chan struct{}, concurrency), articlesStream, errorsStream, wg)
+		wg.Done()
+	}()
+
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
 	seen := map[string]bool{}
 	articles := []*Article{}
 	for {
 		select {
 		case <-ctx.Done():
+			return articles, nil
+		case <-done:
 			return articles, nil
 		case article := <-articlesStream:
 			if seen[article.URL.String()] {
@@ -60,6 +73,10 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 			seen[article.URL.String()] = true
 			articles = append(articles, article)
 		case err := <-errorsStream:
+			if err != nil {
+				p.logger.Logf("error: %s", err)
+			}
+
 			return articles, err
 		}
 	}
@@ -67,7 +84,7 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 
 var loc, _ = time.LoadLocation("Europe/Stockholm")
 
-func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan struct{}, articles chan *Article, errors chan error) {
+func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan struct{}, articles chan *Article, errors chan error, wg *sync.WaitGroup) {
 	if depth < 0 {
 		return
 	}
@@ -90,19 +107,14 @@ func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan 
 		return
 	}
 
-	wg := &sync.WaitGroup{}
 	for _, link := range article.Links {
 		link := link
 		wg.Add(1)
 		go func() {
-			p.parse(ctx, depth-1, link, sem, articles, errors)
+			p.parse(ctx, depth-1, link, sem, articles, errors, wg)
 			wg.Done()
 		}()
 	}
-
-	wg.Wait()
-
-	close(errors)
 }
 
 // returns:
