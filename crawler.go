@@ -19,7 +19,7 @@ func newCrawler() *crawler {
 }
 
 // Crawl returns webpage's content.
-func (c *crawler) Crawl(ctx context.Context, url url.URL) ([]byte, error) {
+func (c *crawler) Crawl(ctx context.Context, url *url.URL) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("faield to create request: %w", err)
