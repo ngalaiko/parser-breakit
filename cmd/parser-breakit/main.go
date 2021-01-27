@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	depth := flag.Int64("d", 0, `Parsing recursion depth. For example, if set to 1, all pages that are \
+	depth := flag.Int64("d", 0, `Parsing recursion depth. For example, if set to 1, all pages that are
 linked from a found page wil be also parsed`)
 	concurrency := flag.Int64("p", 1, "How many pages to parse concurrently")
 
