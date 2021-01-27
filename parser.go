@@ -17,6 +17,8 @@ import (
 type Parser struct {
 	crawler *crawler
 	logger  *logger
+
+	seen *sync.Map
 }
 
 // New creates a new parser.
@@ -24,6 +26,7 @@ func New(verbose bool) *Parser {
 	return &Parser{
 		crawler: newCrawler(),
 		logger:  newLogger(verbose),
+		seen:    &sync.Map{},
 	}
 }
 
@@ -57,7 +60,6 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 		close(done)
 	}()
 
-	seen := map[string]bool{}
 	articles := []*Article{}
 	for {
 		select {
@@ -66,11 +68,6 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 		case <-done:
 			return articles, nil
 		case article := <-articlesStream:
-			if seen[article.URL.String()] {
-				continue
-			}
-
-			seen[article.URL.String()] = true
 			articles = append(articles, article)
 		case err := <-errorsStream:
 			if err != nil {
@@ -88,6 +85,11 @@ func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan 
 	if depth < 0 {
 		return
 	}
+
+	if _, seen := p.seen.Load(url.String()); seen {
+		return
+	}
+	p.seen.Store(url.String(), struct{}{})
 
 	sem <- struct{}{}
 
