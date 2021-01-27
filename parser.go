@@ -186,9 +186,7 @@ func getAttribute(node *html.Node, name string) *string {
 
 func isArticle(link *url.URL) bool {
 	switch link.Hostname() {
-	case "":
-		fallthrough
-	case "breakit.se":
+	case "www.breakit.se", "breakit.se", "":
 		return strings.HasPrefix(link.Path, "/artikel/")
 	default:
 		return false
