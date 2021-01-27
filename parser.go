@@ -38,6 +38,7 @@ type Article struct {
 	Preamble    string
 	Summary     *string
 	Links       []*url.URL
+	Depth       int64
 }
 
 // Parse starts parsing.
@@ -51,7 +52,7 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		p.parse(ctx, depth+1, startURL, make(chan struct{}, concurrency), articlesStream, errorsStream, wg)
+		p.parse(ctx, depth+1, -1, startURL, make(chan struct{}, concurrency), articlesStream, errorsStream, wg)
 		wg.Done()
 	}()
 
@@ -68,6 +69,9 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 		case <-done:
 			return articles, nil
 		case article := <-articlesStream:
+			if article.Depth == -1 {
+				continue
+			}
 			articles = append(articles, article)
 		case err := <-errorsStream:
 			if err != nil {
@@ -81,7 +85,7 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 
 var loc, _ = time.LoadLocation("Europe/Stockholm")
 
-func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan struct{}, articles chan *Article, errors chan error, wg *sync.WaitGroup) {
+func (p *Parser) parse(ctx context.Context, depth int64, pathLength int64, url *url.URL, sem chan struct{}, articles chan *Article, errors chan error, wg *sync.WaitGroup) {
 	if depth < 0 {
 		return
 	}
@@ -101,6 +105,8 @@ func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan 
 		return
 	}
 
+	article.Depth = pathLength
+
 	<-sem
 
 	articles <- article
@@ -113,7 +119,7 @@ func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan 
 		link := link
 		wg.Add(1)
 		go func() {
-			p.parse(ctx, depth-1, link, sem, articles, errors, wg)
+			p.parse(ctx, depth-1, pathLength+1, link, sem, articles, errors, wg)
 			wg.Done()
 		}()
 	}
