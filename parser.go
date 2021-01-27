@@ -120,32 +120,30 @@ func (p *Parser) parsePage(ctx context.Context, link *url.URL) (*Article, error)
 		return nil, fmt.Errorf("failed to parse '%s': %w", link, err)
 	}
 
-	article := extractContent(link, doc)
-	article.links = extractLinks(link, doc)
+	article := &Article{
+		URL:   link,
+		links: extractLinks(link, doc),
+	}
+	extractContent(article, doc)
 
 	return article, nil
 }
 
-func extractContent(src *url.URL, doc *goquery.Document) *Article {
-	a := &Article{
-		URL:      src,
-		Title:    doc.Find(".article__title").Text(),
-		Preamble: doc.Find(".article__preamble").Text(),
-	}
+func extractContent(to *Article, doc *goquery.Document) {
+	to.Title = doc.Find(".article__title").Text()
+	to.Preamble = doc.Find(".article__preamble").Text()
 
 	if s := doc.Find(".article__body").First().First().Text(); s != "" {
-		a.Summary = &s
+		to.Summary = &s
 	}
 
 	if date := doc.Find(".article__date"); date != nil && len(date.Nodes) != 0 {
 		if datetime := getAttribute(date.Nodes[0], "datetime"); datetime != nil {
 			if publishedAt, err := time.Parse("2006-01-02 15:04:05", *datetime); err == nil {
-				a.PublishedAt = publishedAt.In(loc)
+				to.PublishedAt = publishedAt.In(loc)
 			}
 		}
 	}
-
-	return a
 }
 
 func extractLinks(src *url.URL, doc *goquery.Document) []*url.URL {
