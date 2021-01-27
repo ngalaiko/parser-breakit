@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"time"
@@ -24,6 +25,6 @@ type Article struct {
 }
 
 // Parse starts parsing.
-func (p *Parser) Parse(depth int64, concurrency int64) ([]*Article, error) {
+func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*Article, error) {
 	return nil, fmt.Errorf("not implemented")
 }

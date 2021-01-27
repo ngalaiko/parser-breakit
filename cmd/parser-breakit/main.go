@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 
@@ -18,7 +19,9 @@ linked from a found page wil be also parsed`)
 		log.Fatalf("concurrency should be set to at least 1")
 	}
 
-	aa, err := parser.New().Parse(*depth, *concurrency)
+	ctx := context.Background()
+
+	aa, err := parser.New().Parse(ctx, *depth, *concurrency)
 	if err != nil {
 		log.Fatalf("error: %s", err)
 	}
