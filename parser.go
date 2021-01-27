@@ -47,12 +47,18 @@ func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*
 
 	go p.parse(ctx, depth+1, startURL, make(chan struct{}, concurrency), articlesStream, errorsStream)
 
+	seen := map[string]bool{}
 	articles := []*Article{}
 	for {
 		select {
 		case <-ctx.Done():
 			return articles, nil
 		case article := <-articlesStream:
+			if seen[article.URL.String()] {
+				continue
+			}
+
+			seen[article.URL.String()] = true
 			articles = append(articles, article)
 		case err := <-errorsStream:
 			return articles, err
