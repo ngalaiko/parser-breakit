@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -39,45 +40,64 @@ type Article struct {
 
 // Parse starts parsing.
 func (p *Parser) Parse(ctx context.Context, depth int64, concurrency int64) ([]*Article, error) {
-	// todo: use concurrency
-
 	startURL, _ := url.Parse("https://breakit.se")
 
-	articles, err := p.parse(ctx, depth+1, startURL)
-	if err != nil {
-		return nil, err
-	}
+	articlesStream := make(chan *Article)
+	errorsStream := make(chan error)
 
-	return articles, nil
+	go p.parse(ctx, depth+1, startURL, make(chan struct{}, concurrency), articlesStream, errorsStream)
+
+	articles := []*Article{}
+	for {
+		select {
+		case <-ctx.Done():
+			return articles, nil
+		case article := <-articlesStream:
+			articles = append(articles, article)
+		case err := <-errorsStream:
+			return articles, err
+		}
+	}
 }
 
 var loc, _ = time.LoadLocation("Europe/Stockholm")
 
-func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL) ([]*Article, error) {
+func (p *Parser) parse(ctx context.Context, depth int64, url *url.URL, sem chan struct{}, articles chan *Article, errors chan error) {
 	if depth < 0 {
-		return nil, nil
+		return
 	}
+
+	sem <- struct{}{}
 
 	p.logger.Debugf("parsing %s", url)
 
 	article, err := p.parsePage(ctx, url)
 	if err != nil {
-		return nil, err
+		errors <- err
+		return
 	}
 
-	articles := []*Article{article}
+	<-sem
+
+	articles <- article
+
+	if len(article.links) == 0 {
+		return
+	}
+
+	wg := &sync.WaitGroup{}
 	for _, link := range article.links {
-		p.logger.Debugf("%s links to %s", url, link)
-
-		linkedArticles, err := p.parse(ctx, depth-1, link)
-		if err != nil {
-			return nil, err
-		}
-
-		articles = append(articles, linkedArticles...)
+		link := link
+		wg.Add(1)
+		go func() {
+			p.parse(ctx, depth-1, link, sem, articles, errors)
+			wg.Done()
+		}()
 	}
 
-	return articles, nil
+	wg.Wait()
+
+	close(errors)
 }
 
 // returns:
